@@ -1,19 +1,24 @@
 extern crate rand;
+extern crate num;
+
+use std::fmt::Display;
 use std::iter::repeat;
 use std::collections::VecDeque;
 use std::collections::vec_deque::{ IntoIter, Iter, IterMut };
 use self::rand::Rng;
+use self::rand::distributions::range::SampleRange;
+use self::num::{Float};
 
 /// a little implementation of a random-wheel.
-pub struct RandomWheel<T> {
+pub struct RandomWheel<P: SampleRange + Float, T> {
     /// the sum of all probabilities in this wheel.
-    proba_sum: f32,
+    proba_sum: P,
     /// all the (probability, data) in a linked-list to pop easily.
-    cards: VecDeque<(f32, T)>
+    cards: VecDeque<(P, T)>
 }
 
-impl<T: Clone> Clone for RandomWheel<T> {
-    fn clone(&self) -> RandomWheel<T> {
+impl<P: SampleRange + Float, T: Clone> Clone for RandomWheel<P, T> {
+    fn clone(&self) -> RandomWheel<P, T> {
         RandomWheel{
             proba_sum: self.proba_sum,
             cards: self.cards.clone()
@@ -21,20 +26,20 @@ impl<T: Clone> Clone for RandomWheel<T> {
     }
 }
 
-impl<T> IntoIterator for RandomWheel<T> {
+impl<P: SampleRange + Float, T> IntoIterator for RandomWheel<P, T> {
 
-    type Item = (f32, T);
-    type IntoIter = IntoIter<(f32, T)>;
+    type Item = (P, T);
+    type IntoIter = IntoIter<(P, T)>;
 
     /// Creates a consuming iterator, that is, one that moves each value out of
     /// the randomWheel (from start to end).
     #[inline]
-    fn into_iter(self) -> IntoIter<(f32, T)> {
+    fn into_iter(self) -> IntoIter<(P, T)> {
         self.cards.into_iter()
     }
 }
 
-impl<T> RandomWheel<T> {
+impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     /// create a new random-wheel from vector.
     /// # Example
     ///
@@ -46,12 +51,12 @@ impl<T> RandomWheel<T> {
     /// // default probability is set to 1.0 for each element
     /// let rw: RandomWheel<u8> = RandomWheel::from_vec(numbers);
     /// ```
-    pub fn from_vec(vector: Vec<T>) -> RandomWheel<T> {
+    pub fn from_vec(vector: Vec<T>) -> RandomWheel<P, T> {
 
         RandomWheel {
 
-            proba_sum: vector.len() as f32,
-            cards: repeat(1.0).into_iter().zip(vector).collect()
+            proba_sum: P::from(vector.len()).unwrap(),
+            cards: repeat(P::one()).into_iter().zip(vector).collect()
         }
     }
 
@@ -63,11 +68,9 @@ impl<T> RandomWheel<T> {
     ///
     /// let rw: RandomWheel<u8> = RandomWheel::new();
     /// ```
-    pub fn new() -> RandomWheel<T> {
-
+    pub fn new() -> RandomWheel<P, T> {
         RandomWheel {
-
-            proba_sum: 0.,
+            proba_sum: P::zero(),
             cards: VecDeque::new()
         }
     }
@@ -83,11 +86,9 @@ impl<T> RandomWheel<T> {
     ///
     /// assert_eq!(rw.len(), 0);
     /// ```
-    pub fn with_capacity(n: usize) -> RandomWheel<T> {
-
+    pub fn with_capacity(n: usize) -> RandomWheel<P, T> {
         RandomWheel {
-
-            proba_sum: 0.,
+            proba_sum: P::zero(),
             cards: VecDeque::with_capacity(n)
         }
     }
@@ -97,7 +98,7 @@ impl<T> RandomWheel<T> {
     /// The collection may reserve more space to avoid frequent reallocations.
     /// # Example
     ///
-    /// ```
+    /// ```norun
     /// use random_wheel::RandomWheel;
     ///
     /// let mut rw: RandomWheel<u8> = RandomWheel::new();
@@ -183,7 +184,7 @@ impl<T> RandomWheel<T> {
     /// assert_eq!(rw.is_empty(), false);
     /// ```
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.cards.is_empty()
     }
 
     /// Returns an iterator over the slice.
@@ -205,7 +206,7 @@ impl<T> RandomWheel<T> {
     /// assert_eq!(iter.next(), Some(&(1.0, 'a')));
     /// assert_eq!(iter.next(), None);
     /// ```
-    pub fn iter(&self) -> Iter<(f32, T)> {
+    pub fn iter(&self) -> Iter<(P, T)> {
         self.cards.iter()
     }
 
@@ -227,7 +228,7 @@ impl<T> RandomWheel<T> {
     ///
     /// assert_eq!(rw.peek(), Some((1., &'m')));
     /// ```
-    pub fn iter_mut(&mut self) -> IterMut<(f32, T)> {
+    pub fn iter_mut(&mut self) -> IterMut<(P, T)> {
         self.cards.iter_mut()
     }
 
@@ -245,11 +246,11 @@ impl<T> RandomWheel<T> {
     ///
     /// assert_eq!(rw.len(), 3);
     /// ```
-    pub fn push(&mut self, proba: f32, data: T) {
+    pub fn push(&mut self, proba: P, data: T) {
 
-        assert!(proba > 0.0, "proba {} is lower or equal to zero!", proba);
+        assert!(proba > P::zero(), "proba {} is lower or equal to zero!", proba);
         self.cards.push_back((proba, data));
-        self.proba_sum += proba;
+        self.proba_sum = self.proba_sum + proba;
         if self.proba_sum.is_infinite() {
             panic!("Probability sum reached an Inf value!");
         }
@@ -259,11 +260,11 @@ impl<T> RandomWheel<T> {
     /// use it when you iterate through this vector and change proba values
     pub fn compute_proba_sum(&mut self) {
 
-        let mut sum = 0.0;
+        let mut sum = P::zero();
         for &(proba, _) in self.cards.iter() {
 
-            assert!(proba > 0.0, "proba {} is lower or equal to zero!", proba);
-            sum += proba;
+            assert!(proba > P::zero(), "proba {} is lower or equal to zero!", proba);
+            sum = sum + proba;
         }
         self.proba_sum = sum;
         if self.proba_sum.is_infinite() {
@@ -285,30 +286,32 @@ impl<T> RandomWheel<T> {
     ///
     /// assert_eq!(rw.proba_sum(), 6.5);
     /// ```
-    pub fn proba_sum(&self) -> f32 {
+    pub fn proba_sum(&self) -> P {
         self.proba_sum
     }
 
     /// returns a random distance to browser between 0 and the probabilities sum.
-    fn gen_random_dist(&self) -> f32 {
+    fn gen_random_dist(&self) -> P {
 
         match self.proba_sum {
 
-            sum if sum > 0. => rand::thread_rng().gen_range(0., sum),
-            _               => 0.
+            sum if sum > P::zero() => rand::thread_rng().gen_range(P::zero(), sum),
+            _               => P::zero()
         }
     }
 
     /// returns a random index in self.cards.
     fn get_random_index(&self) -> Option<usize> {
 
+        let zero = P::zero();
+
         if self.is_empty() == false {
 
             let mut dist = self.gen_random_dist();
             for (id, &(ref proba, _)) in self.cards.iter().enumerate() {
 
-                dist -= *proba;
-                if dist <= 0. {
+                dist = dist - *proba;
+                if dist <= zero {
                     return Some(id);
                 }
             }
@@ -331,7 +334,7 @@ impl<T> RandomWheel<T> {
     /// assert_eq!(rw.peek(), Some((1.0, &'r')));
     /// assert_eq!(rw.peek(), Some((1.0, &'r')));
     /// ```
-    pub fn peek(&self) -> Option<(f32, &T)> {
+    pub fn peek(&self) -> Option<(P, &T)> {
 
         if let Some(index) = self.get_random_index() {
 
@@ -361,7 +364,7 @@ impl<T> RandomWheel<T> {
     ///
     /// assert_eq!(rw.peek(), Some((1.0, &'b')));
     /// ```
-    pub fn peek_mut(&mut self) -> Option<(f32, &mut T)> {
+    pub fn peek_mut(&mut self) -> Option<(P, &mut T)> {
 
         if let Some(index) = self.get_random_index() {
 
@@ -390,13 +393,13 @@ impl<T> RandomWheel<T> {
     /// assert_eq!(rw.peek(), None);
     /// assert_eq!(rw.pop(), None);
     /// ```
-    pub fn pop(&mut self) -> Option<(f32, T)> {
+    pub fn pop(&mut self) -> Option<(P, T)> {
 
         if let Some(index) = self.get_random_index() {
 
             if let Some((proba, data)) = self.cards.remove(index) {
 
-                self.proba_sum -= proba;
+                self.proba_sum = self.proba_sum - proba;
                 Some((proba, data))
             }
             else { None }

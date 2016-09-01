@@ -9,3 +9,4 @@ repository = "https://github.com/Kerosene2000/random-wheel-rs"
 
 [dependencies]
 rand = "0.3"
+num = "0.1"

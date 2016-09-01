@@ -5,7 +5,7 @@ extern crate random_wheel;
 #[cfg(test)]
 mod tests {
 
-    use random_wheel::*;
+    use random_wheel::RandomWheel;
 
     // need nightly
     /*use test;
