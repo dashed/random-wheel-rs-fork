@@ -28,6 +28,22 @@ mod tests {
     }
 
     #[test]
+    fn test_iterable() {
+
+        let value = 'r';
+        let mut wheel = RandomWheel::new();
+
+        wheel.push(1., value);
+
+        for (prob, actual_value) in wheel.by_ref() {
+            assert_eq!(prob, 1.);
+            assert_eq!(value, actual_value);
+        }
+
+        assert_eq!(wheel.len(), 0);
+    }
+
+    #[test]
     fn test_clear() {
 
         let mut wheel = RandomWheel::new();
