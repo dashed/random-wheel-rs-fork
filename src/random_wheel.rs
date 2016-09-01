@@ -4,7 +4,7 @@ extern crate num;
 use std::fmt::Display;
 use std::iter::repeat;
 use std::collections::VecDeque;
-use std::collections::vec_deque::{ IntoIter, Iter, IterMut };
+use std::collections::vec_deque::{ Iter, IterMut };
 use self::rand::Rng;
 use self::rand::distributions::range::SampleRange;
 use self::num::{Float};
@@ -26,16 +26,12 @@ impl<P: SampleRange + Float, T: Clone> Clone for RandomWheel<P, T> {
     }
 }
 
-impl<P: SampleRange + Float, T> IntoIterator for RandomWheel<P, T> {
+impl<P: SampleRange + Float + Display, T> Iterator for RandomWheel<P, T> {
 
     type Item = (P, T);
-    type IntoIter = IntoIter<(P, T)>;
 
-    /// Creates a consuming iterator, that is, one that moves each value out of
-    /// the randomWheel (from start to end).
-    #[inline]
-    fn into_iter(self) -> IntoIter<(P, T)> {
-        self.cards.into_iter()
+    fn next(&mut self) -> Option<Self::Item> {
+        self.pop()
     }
 }
 
