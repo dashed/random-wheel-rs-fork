@@ -303,21 +303,29 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     /// returns a random index in self.cards.
     fn get_random_index(&self) -> Option<usize> {
 
+        if self.is_empty() {
+            return None;
+        }
+
+        if self.len() <= 1 {
+            // NOTE: fast path
+            return Some(0);
+        }
+
         let zero = P::zero();
 
-        if self.is_empty() == false {
+        let mut dist = self.gen_random_dist();
+        for (id, &(ref proba, _)) in self.cards.iter().enumerate() {
 
-            let mut dist = self.gen_random_dist();
-            for (id, &(ref proba, _)) in self.cards.iter().enumerate() {
-
-                dist = dist - *proba;
-                if dist <= zero {
-                    return Some(id);
-                }
+            dist = dist - *proba;
+            if dist <= zero {
+                return Some(id);
             }
-            None
         }
-        else { None }
+
+        // NOTE: this is unreachable
+
+        return None;
     }
 
     /// returns a ref to the randomly peeked element with
