@@ -1,11 +1,13 @@
 /*#![feature(test)]
 extern crate test;*/
 extern crate random_wheel;
+extern crate rand;
 
 #[cfg(test)]
 mod tests {
 
     use random_wheel::RandomWheel;
+    use rand;
 
     // need nightly
     /*use test;
@@ -19,7 +21,7 @@ mod tests {
     fn test_peek_and_pop_to_empty() {
 
         let value = 'r';
-        let mut wheel = RandomWheel::new();
+        let mut wheel = RandomWheel::new(rand::thread_rng());
 
         wheel.push(1., value);
         assert_eq!(wheel.peek(), Some((1., &value)));
@@ -31,7 +33,7 @@ mod tests {
     fn test_iterable() {
 
         let value = 'r';
-        let mut wheel = RandomWheel::new();
+        let mut wheel = RandomWheel::new(rand::thread_rng());
 
         wheel.push(1., value);
 
@@ -46,7 +48,7 @@ mod tests {
     #[test]
     fn test_clear() {
 
-        let mut wheel = RandomWheel::new();
+        let mut wheel = RandomWheel::new(rand::thread_rng());
 
         wheel.push(1., 'a');
         wheel.push(1., 'c');
@@ -64,7 +66,7 @@ mod tests {
     #[test]
     fn test_proba_sum() {
 
-        let mut wheel = RandomWheel::new();
+        let mut wheel = RandomWheel::new(rand::thread_rng());
 
         wheel.push(1., 'a');
         wheel.push(0.5, 'c');
@@ -84,7 +86,7 @@ mod tests {
     // not properly working without clone
     #[test]
     fn test_no_clone_implement() {
-        let mut wheel = RandomWheel::new();
+        let mut wheel = RandomWheel::new(rand::thread_rng());
 
         let noclone = NoClone{ field: 3 };
         wheel.push(1., noclone);

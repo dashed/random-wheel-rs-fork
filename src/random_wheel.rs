@@ -8,25 +8,30 @@ use std::collections::vec_deque::{ Iter, IterMut };
 use self::rand::Rng;
 use self::rand::distributions::range::SampleRange;
 use self::num::{Float};
+use self::rand::distributions::{IndependentSample, Range};
+
 
 /// a little implementation of a random-wheel.
-pub struct RandomWheel<P: SampleRange + Float, T> {
+pub struct RandomWheel<P: SampleRange + Float, T, R: Rng> {
     /// the sum of all probabilities in this wheel.
     proba_sum: P,
     /// all the (probability, data) in a linked-list to pop easily.
-    cards: VecDeque<(P, T)>
+    cards: VecDeque<(P, T)>,
+
+    rng: R
 }
 
-impl<P: SampleRange + Float, T: Clone> Clone for RandomWheel<P, T> {
-    fn clone(&self) -> RandomWheel<P, T> {
+impl<P: SampleRange + Float, T: Clone, R: Clone + Rng> Clone for RandomWheel<P, T, R> {
+    fn clone(&self) -> RandomWheel<P, T, R> {
         RandomWheel{
             proba_sum: self.proba_sum,
-            cards: self.cards.clone()
+            cards: self.cards.clone(),
+            rng: self.rng.clone()
         }
     }
 }
 
-impl<P: SampleRange + Float + Display, T> Iterator for RandomWheel<P, T> {
+impl<P: SampleRange + Float + Display, T, R: Rng> Iterator for RandomWheel<P, T, R> {
 
     type Item = (P, T);
 
@@ -35,7 +40,7 @@ impl<P: SampleRange + Float + Display, T> Iterator for RandomWheel<P, T> {
     }
 }
 
-impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
+impl<P: SampleRange + Float + Display, T, R: Rng> RandomWheel<P, T, R> {
     /// create a new random-wheel from vector.
     /// # Example
     ///
@@ -47,12 +52,14 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     /// // default probability is set to 1.0 for each element
     /// let rw: RandomWheel<u8> = RandomWheel::from_vec(numbers);
     /// ```
-    pub fn from_vec(vector: Vec<T>) -> RandomWheel<P, T> {
+    pub fn from_vec(vector: Vec<T>, rng: R) -> RandomWheel<P, T, R> {
+
+        let proba_sum = P::from(vector.len()).unwrap();
 
         RandomWheel {
-
-            proba_sum: P::from(vector.len()).unwrap(),
-            cards: repeat(P::one()).into_iter().zip(vector).collect()
+            proba_sum: proba_sum,
+            cards: repeat(P::one()).into_iter().zip(vector).collect(),
+            rng: rng
         }
     }
 
@@ -64,10 +71,11 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     ///
     /// let rw: RandomWheel<u8> = RandomWheel::new();
     /// ```
-    pub fn new() -> RandomWheel<P, T> {
+    pub fn new(rng: R) -> RandomWheel<P, T, R>{
         RandomWheel {
             proba_sum: P::zero(),
-            cards: VecDeque::new()
+            cards: VecDeque::new(),
+            rng: rng
         }
     }
 
@@ -82,10 +90,11 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     ///
     /// assert_eq!(rw.len(), 0);
     /// ```
-    pub fn with_capacity(n: usize) -> RandomWheel<P, T> {
+    pub fn with_capacity(n: usize, rng: R) -> RandomWheel<P, T, R> {
         RandomWheel {
             proba_sum: P::zero(),
-            cards: VecDeque::with_capacity(n)
+            cards: VecDeque::with_capacity(n),
+            rng: rng
         }
     }
 
@@ -287,17 +296,20 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     }
 
     /// returns a random distance to browser between 0 and the probabilities sum.
-    fn gen_random_dist(&self) -> P {
+    fn gen_random_dist(&mut self) -> P {
 
         match self.proba_sum {
 
-            sum if sum > P::zero() => rand::thread_rng().gen_range(P::zero(), sum),
-            _               => P::zero()
+            sum if sum > P::zero() => {
+                let between = Range::new(P::zero(), sum);
+                between.ind_sample(&mut self.rng)
+            },
+            _ => P::zero()
         }
     }
 
     /// returns a random index in self.cards.
-    fn get_random_index(&self) -> Option<usize> {
+    fn get_random_index(&mut self) -> Option<usize> {
 
         if self.is_empty() {
             return None;
@@ -338,7 +350,7 @@ impl<P: SampleRange + Float + Display, T> RandomWheel<P, T> {
     /// assert_eq!(rw.peek(), Some((1.0, &'r')));
     /// assert_eq!(rw.peek(), Some((1.0, &'r')));
     /// ```
-    pub fn peek(&self) -> Option<(P, &T)> {
+    pub fn peek(&mut self) -> Option<(P, &T)> {
 
         if let Some(index) = self.get_random_index() {
 
